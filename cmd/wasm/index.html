@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEL Formatter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .wrapper {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .text-area {
+            width: 48%;
+            height: 300px;
+            font-family: "Courier New", monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+            resize: none;
+        }
+
+        .output-area {
+            width: 48%;
+            height: 300px;
+            font-family: "Courier New", monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: #f9f9f9;
+            resize: none;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .button {
+            padding: 10px 20px;
+            background-color: #ccc;
+            color: white;
+            border: none;
+            cursor: not-allowed;
+            font-size: 16px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: block;
+            width: 100%;
+        }
+
+        .button.enabled {
+            background-color: #4CAF50;
+            cursor: pointer;
+        }
+
+        .button:hover.enabled {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>CEL Formatter</h2>
+    <div class="wrapper">
+        <textarea id="input" class="text-area" placeholder="Enter your CEL program here..."></textarea>
+        <textarea id="output" class="output-area" readonly></textarea>
+    </div>
+    <button id="button" class="button" disabled>Format</button>
+</div>
+
+<script src="wasm_exec.js"></script>
+<script>
+    if (!WebAssembly.instantiateStreaming) { // polyfill
+        WebAssembly.instantiateStreaming = async (resp, importObject) => {
+            const source = await (await resp).arrayBuffer();
+            return await WebAssembly.instantiate(source, importObject);
+        };
+    }
+
+    const go = new Go();
+    WebAssembly.instantiateStreaming(fetch("celfmt.wasm"), go.importObject).then((result) => {
+        go.run(result.instance);
+
+        // Enable Format button after WASM is initialized.
+        const button = document.getElementById("button");
+        button.disabled = false;
+        button.classList.add('enabled');
+        button.onclick = formatCEL;
+    }).catch((err) => {
+        console.error(err);
+    });
+
+    function formatCEL() {
+        const inputSource = document.getElementById('input').value;
+        const result = celFmt(inputSource) ;
+        if (result.error) {
+            document.getElementById('output').value = "‼️ ERROR\n"+result.error;
+            return
+        }
+        if (inputSource === result.source) {
+            document.getElementById('output').value = "✅ CEL program is already formatted.";
+            return
+        }
+        document.getElementById('output').value = result.source;
+    }
+</script>
+
+</body>
+</html>
