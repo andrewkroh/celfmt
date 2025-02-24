@@ -30,10 +30,9 @@ jobs:
           mkdir -p build/static_site
           BUILD_DIR=$(pwd)/build/static_site
           cd cmd/wasm
-          go generate
+          GOOS=js GOARCH=wasm go generate
           GOOS=js GOARCH=wasm go build -o ${BUILD_DIR}/celfmt.wasm .
-          cp *.html ${BUILD_DIR}
-          cp *.js ${BUILD_DIR} 
+          cp *.html *.js ${BUILD_DIR}
 
       - name: Upload static files as artifact
         id: deployment
