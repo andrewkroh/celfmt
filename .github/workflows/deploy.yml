@@ -2,6 +2,8 @@ name: Deploy
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
 
@@ -11,8 +13,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      STATIC_SITE_DIR: build/static_site
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,10 +28,12 @@ jobs:
         id: build
         run: |
           mkdir -p build/static_site
+          BUILD_DIR=$(pwd)/build/static_site
           cd cmd/wasm
           go generate
-          GOOS=js GOARCH=wasm go build -o celfmt.wasm .
-          cp *.html *.wasm *.js ../../build/static_site
+          GOOS=js GOARCH=wasm go build -o ${BUILD_DIR}/celfmt.wasm .
+          cp *.html ${BUILD_DIR}
+          cp *.js ${BUILD_DIR} 
 
       - name: Upload static files as artifact
         id: deployment
