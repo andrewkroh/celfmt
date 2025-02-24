@@ -11,6 +11,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      STATIC_SITE_DIR: build/static_site
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,17 +27,17 @@ jobs:
       - name: Build static files
         id: build
         run: |
+          mkdir -p build/static_site
           cd cmd/wasm
           go generate
           GOOS=js GOARCH=wasm go build -o celfmt.wasm .
-          mkdir /static_site
-          cp *.html *.wasm *.js /static_site/
+          cp *.html *.wasm *.js ../../build/static_site
 
       - name: Upload static files as artifact
         id: deployment
         uses: actions/upload-pages-artifact@v3
         with:
-          path: /static_site/
+          path: build/static_site
 
   # Deployment job
   deploy:
