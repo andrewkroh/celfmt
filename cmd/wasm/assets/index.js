@@ -55,7 +55,7 @@ class CelFormatter {
         if (metadata.go) {
             let a = document.getElementById("go-version-link");
             a.innerHTML = metadata.go;
-            a.href = "https://pkg.go.dev/std@go@" + metadata.go
+            a.href = "https://pkg.go.dev/std@go" + metadata.go
         }
     }
 
