@@ -2,8 +2,6 @@ name: Deploy
 
 on:
   push:
-    branches:
-      - master
     tags:
       - 'v*'
 
@@ -41,7 +39,6 @@ jobs:
         with:
           path: ../static_site
 
-  # Deployment job
   deploy:
     permissions:
       pages: write
