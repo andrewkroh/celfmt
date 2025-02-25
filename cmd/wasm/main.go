@@ -23,6 +23,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"runtime"
+	"runtime/debug"
 	"syscall/js"
 
 	"github.com/elastic/mito/lib"
@@ -89,7 +91,58 @@ func celFmt(this js.Value, args []js.Value) any {
 }
 
 func main() {
+	versions, err := getVersions()
+	if err != nil {
+		println(err.Error())
+	}
+	fmt.Println(versions)
+
 	done := make(chan int, 0)
 	js.Global().Set("celFmt", js.FuncOf(celFmt))
 	<-done
+}
+
+func getVersions() (map[string]string, error) {
+	// Get the build information for the current module
+	buildInfo, ok := debug.ReadBuildInfo()
+	if !ok {
+		return nil, fmt.Errorf("could not read build info")
+	}
+
+	GitCommit := "NOCOMMIT"
+	BuildDate := ""
+
+	modified := false
+	for _, setting := range buildInfo.Settings {
+		fmt.Println(setting.Key)
+		switch setting.Key {
+		case "vcs.revision":
+			GitCommit = setting.Value
+		case "vcs.time":
+			BuildDate = setting.Value
+		case "vcs.modified":
+			modified = true
+		}
+	}
+	if modified {
+		GitCommit += "+CHANGES"
+	}
+
+	versions := map[string]string{
+		"git":    GitCommit + " " + BuildDate,
+		"go":     runtime.Version(),
+		"celfmt": buildInfo.Main.Version,
+	}
+
+	// Iterate over the module information to find the current module's version and commit hash
+	for _, m := range buildInfo.Deps {
+		switch m.Path {
+		case "github.com/elastic/mito":
+			versions["mito"] = m.Version
+		case "github.com/google/cel-go":
+			versions["cel-go"] = m.Version
+		}
+	}
+
+	return versions, nil
 }
