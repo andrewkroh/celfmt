@@ -38,9 +38,9 @@ import (
 //go:generate cp "$GOROOT/lib/wasm/wasm_exec.js" "$PWD"
 
 func compileAndFormat(dst io.Writer, src string) error {
-	xml, err := lib.XML(nil, nil)
+	xmlHelper, err := lib.XML(nil, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize xml helper: %w", err)
 	}
 	env, err := cel.NewEnv(
 		cel.Declarations(decls.NewVar("state", decls.Dyn)),
@@ -55,7 +55,7 @@ func compileAndFormat(dst io.Writer, src string) error {
 		lib.HTTP(nil, nil, nil),
 		lib.Limit(nil),
 		lib.Strings(),
-		xml,
+		xmlHelper,
 		cel.OptionalTypes(cel.OptionalTypesVersion(1)),
 		cel.EnableMacroCallTracking(),
 	)
