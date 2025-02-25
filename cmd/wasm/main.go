@@ -71,10 +71,14 @@ func compileAndFormat(dst io.Writer, src string) error {
 
 func celFmt(this js.Value, args []js.Value) any {
 	if len(args) != 1 {
-		return "celFmt requires one argument"
+		return map[string]any{
+			"error": "celFmt requires one argument",
+		}
 	}
 	if args[0].Type() != js.TypeString {
-		return "celFmt argument must be a string"
+		return map[string]any{
+			"error": "celFmt argument must be a string",
+		}
 	}
 	src := args[0].String()
 
@@ -90,59 +94,51 @@ func celFmt(this js.Value, args []js.Value) any {
 	}
 }
 
-func main() {
-	versions, err := getVersions()
-	if err != nil {
-		println(err.Error())
-	}
-	fmt.Println(versions)
-
-	done := make(chan int, 0)
-	js.Global().Set("celFmt", js.FuncOf(celFmt))
-	<-done
-}
-
-func getVersions() (map[string]string, error) {
-	// Get the build information for the current module
-	buildInfo, ok := debug.ReadBuildInfo()
+func getBuildMetadata() (map[string]string, error) {
+	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return nil, fmt.Errorf("could not read build info")
 	}
 
-	GitCommit := "NOCOMMIT"
-	BuildDate := ""
-
-	modified := false
-	for _, setting := range buildInfo.Settings {
-		fmt.Println(setting.Key)
-		switch setting.Key {
-		case "vcs.revision":
-			GitCommit = setting.Value
-		case "vcs.time":
-			BuildDate = setting.Value
-		case "vcs.modified":
-			modified = true
-		}
-	}
-	if modified {
-		GitCommit += "+CHANGES"
-	}
-
-	versions := map[string]string{
-		"git":    GitCommit + " " + BuildDate,
+	meta := map[string]string{
 		"go":     runtime.Version(),
-		"celfmt": buildInfo.Main.Version,
+		"celfmt": info.Main.Version,
 	}
 
-	// Iterate over the module information to find the current module's version and commit hash
-	for _, m := range buildInfo.Deps {
+	for _, m := range info.Deps {
 		switch m.Path {
 		case "github.com/elastic/mito":
-			versions["mito"] = m.Version
+			meta["mito"] = m.Version
 		case "github.com/google/cel-go":
-			versions["cel-go"] = m.Version
+			meta["cel-go"] = m.Version
 		}
 	}
 
-	return versions, nil
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			meta["commit"] = setting.Value
+		case "vcs.time":
+			meta["commit_time"] = setting.Value
+		}
+	}
+
+	return meta, nil
+}
+
+func printBuildMetadata() {
+	meta, err := getBuildMetadata()
+	if err != nil {
+		return
+	}
+
+	fmt.Println("celfmt build metadata:", meta)
+}
+
+func main() {
+	printBuildMetadata()
+
+	done := make(chan int, 0)
+	js.Global().Set("celFmt", js.FuncOf(celFmt))
+	<-done
 }
