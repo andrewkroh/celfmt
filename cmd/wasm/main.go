@@ -21,10 +21,12 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"syscall/js"
 
 	"github.com/elastic/mito/lib"
@@ -35,7 +37,7 @@ import (
 	"github.com/elastic/celfmt"
 )
 
-//go:generate cp "$GOROOT/lib/wasm/wasm_exec.js" "$PWD"
+//go:generate cp "$GOROOT/lib/wasm/wasm_exec.js" "$PWD/assets"
 
 func compileAndFormat(dst io.Writer, src string) error {
 	xmlHelper, err := lib.XML(nil, nil)
@@ -69,39 +71,69 @@ func compileAndFormat(dst io.Writer, src string) error {
 	return celfmt.Format(dst, ast.NativeRep(), common.NewTextSource(src), celfmt.Pretty(), celfmt.AlwaysComma())
 }
 
-func celFmt(this js.Value, args []js.Value) any {
-	if len(args) != 1 {
-		return map[string]any{
-			"error": "celFmt requires one argument",
-		}
-	}
-	if args[0].Type() != js.TypeString {
-		return map[string]any{
-			"error": "celFmt argument must be a string",
-		}
-	}
-	src := args[0].String()
-
-	out := new(bytes.Buffer)
-	if err := compileAndFormat(out, src); err != nil {
-		return map[string]any{
-			"error": err.Error(),
-		}
-	}
-
-	return map[string]any{
-		"source": out.String(),
-	}
+type celFmtResult struct {
+	Error     string `json:"error,omitempty"`
+	Formatted string `json:"formatted,omitempty"`
 }
 
-func getBuildMetadata() (map[string]string, error) {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return nil, fmt.Errorf("could not read build info")
+// celFmt formats a given string using our CEL (Common Expression Language)
+// formatting rules. It compiles the given program as part of the formatting
+// process. This function takes one argument, which must be a string.
+//
+// The function always returns an object. On success, the object contains one
+// attribute named 'formatted' which contains the formatted CEL program. If any
+// error occurs, then the object contains an attribute named 'error' whose value
+// is the string error message.
+func celFmt(_ js.Value, args []js.Value) any {
+	if len(args) != 1 {
+		return toObject(&celFmtResult{Error: "celFmt requires one argument"})
+	}
+	if args[0].Type() != js.TypeString {
+		return toObject(&celFmtResult{Error: "celFmt argument must be a string"})
 	}
 
-	meta := map[string]string{
-		"go":     runtime.Version(),
+	buf := new(bytes.Buffer)
+	if err := compileAndFormat(buf, args[0].String()); err != nil {
+		return toObject(&celFmtResult{Error: err.Error()})
+	}
+	return toObject(&celFmtResult{Formatted: buf.String()})
+}
+
+// toObject converts a struct to a map[string]any using JSON marshal/unmarshal.
+func toObject(v any) map[string]any {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+
+	var out map[string]any
+	if err = json.Unmarshal(data, &out); err != nil {
+		panic(err)
+	}
+
+	return out
+}
+
+// moduleBuildMetadata returns a map containing build and dependency metadata
+// about WebAssembly module. This includes version numbers for specific modules
+// and other relevant settings such as commit hash and time.
+//
+// It then returns this map, which may contain the following keys:
+//
+//   - go: The Go language version used to build the program (without the "go" prefix).
+//   - celfmt: The version of the main module in the build information.
+//   - mito: The version of the "github.com/elastic/mito" module.
+//   - cel-go: The version of the "github.com/google/cel-go" module.
+//   - commit: The VCS revision (commit hash) from the build settings, if available.
+//   - commit_time: The timestamp of the VCS revision from the build settings, if available.
+func moduleBuildMetadata(_ js.Value, _ []js.Value) any {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return nil
+	}
+
+	meta := map[string]any{
+		"go":     strings.TrimPrefix(runtime.Version(), "go"),
 		"celfmt": info.Main.Version,
 	}
 
@@ -123,22 +155,12 @@ func getBuildMetadata() (map[string]string, error) {
 		}
 	}
 
-	return meta, nil
-}
-
-func printBuildMetadata() {
-	meta, err := getBuildMetadata()
-	if err != nil {
-		return
-	}
-
-	fmt.Println("celfmt build metadata:", meta)
+	return meta
 }
 
 func main() {
-	printBuildMetadata()
-
 	done := make(chan int, 0)
 	js.Global().Set("celFmt", js.FuncOf(celFmt))
+	js.Global().Set("celModuleBuildMetadata", js.FuncOf(moduleBuildMetadata))
 	<-done
 }
