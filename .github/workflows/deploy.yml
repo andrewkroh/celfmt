@@ -31,7 +31,7 @@ jobs:
           GOOS=js GOARCH=wasm go build -o "${BUILD_DIR}/celfmt.wasm" ./cmd/wasm/
           GOOS=js GOARCH=wasm go generate -x -v ./cmd/wasm
           
-          cp cmd/wasm/assets/*.{html,js,svg} "$BUILD_DIR"
+          cp -p cmd/wasm/assets/* "$BUILD_DIR"
           
       - name: Upload static files as artifact
         id: deployment
