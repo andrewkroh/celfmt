@@ -27,18 +27,19 @@ jobs:
       - name: Build static files
         id: build
         run: |
-          mkdir -p build/static_site
-          BUILD_DIR=$(pwd)/build/static_site
-          cd cmd/wasm
-          GOOS=js GOARCH=wasm go generate
-          GOOS=js GOARCH=wasm go build -o ${BUILD_DIR}/celfmt.wasm .
-          cp *.html *.js ${BUILD_DIR}
+          BUILD_DIR="$(pwd)/../static_site"
+          mkdir -p "$BUILD_DIR"
+          
+          GOOS=js GOARCH=wasm go build -o "${BUILD_DIR}/celfmt.wasm" ./cmd/wasm/
+          GOOS=js GOARCH=wasm go generate -x -v ./cmd/wasm
+          
+          cp cmd/wasm/*.{html,js} "$BUILD_DIR"
 
       - name: Upload static files as artifact
         id: deployment
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build/static_site
+          path: ../static_site
 
   # Deployment job
   deploy:
