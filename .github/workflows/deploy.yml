@@ -31,14 +31,8 @@ jobs:
           GOOS=js GOARCH=wasm go build -o "${BUILD_DIR}/celfmt.wasm" ./cmd/wasm/
           GOOS=js GOARCH=wasm go generate -x -v ./cmd/wasm
           
-          cp cmd/wasm/*.{html,js,svg} "$BUILD_DIR"
+          cp cmd/wasm/assets/*.{html,js,svg} "$BUILD_DIR"
           
-          CELFMT_VERSION=${GITHUB_SHA::7}
-          MITO_VERSION=$(go list -f '{{ .Version }}' -m github.com/elastic/mito)
-          
-          sed -i "s/CELFMT_VERSION/$CELFMT_VERSION/" "$BUILD_DIR/index.html"
-          sed -i "s/MITO_VERSION/$MITO_VERSION/" "$BUILD_DIR/index.html"
-
       - name: Upload static files as artifact
         id: deployment
         uses: actions/upload-pages-artifact@v3
